@@ -1,100 +1,38 @@
-// Post.js - Mongoose model for blog posts
-
 const mongoose = require('mongoose');
 
-const PostSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: [true, 'Please provide a title'],
-      trim: true,
-      maxlength: [100, 'Title cannot be more than 100 characters'],
+const postSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  content: { type: String, required: true },
+  excerpt: { type: String },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
+  tags: [String],
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  slug: { type: String, unique: true },
+  featuredImage: { type: String, default: 'default-post.jpg' },
+  isPublished: { type: Boolean, default: false },
+  comments: [
+    {
+      content: { type: String, required: true },
+      author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      createdAt: { type: Date, default: Date.now },
     },
-    content: {
-      type: String,
-      required: [true, 'Please provide content'],
-    },
-    featuredImage: {
-      type: String,
-      default: 'default-post.jpg',
-    },
-    slug: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    excerpt: {
-      type: String,
-      maxlength: [200, 'Excerpt cannot be more than 200 characters'],
-    },
-    author: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
-      required: true,
-    },
-    tags: [String],
-    isPublished: {
-      type: Boolean,
-      default: false,
-    },
-    viewCount: {
-      type: Number,
-      default: 0,
-    },
-    comments: [
-      {
-        user: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
-        content: {
-          type: String,
-          required: true,
-        },
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
-  },
-  { timestamps: true }
-);
-
-// Create slug from title before saving
-PostSchema.pre('save', function (next) {
-  if (!this.isModified('title')) {
-    return next();
-  }
-  
-  this.slug = this.title
-    .toLowerCase()
-    .replace(/[^\w ]+/g, '')
-    .replace(/ +/g, '-');
-    
-  next();
+  ],
+  views: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
 });
 
-// Virtual for post URL
-PostSchema.virtual('url').get(function () {
-  return `/posts/${this.slug}`;
-});
-
-// Method to add a comment
-PostSchema.methods.addComment = function (userId, content) {
-  this.comments.push({ user: userId, content });
-  return this.save();
-};
+postSchema.index({ title: 'text', content: 'text', tags: 'text' });
 
 // Method to increment view count
-PostSchema.methods.incrementViewCount = function () {
-  this.viewCount += 1;
-  return this.save();
+postSchema.methods.incrementViewCount = async function () {
+  this.views += 1;
+  await this.save();
 };
 
-module.exports = mongoose.model('Post', PostSchema); 
+// Method to add a comment
+postSchema.methods.addComment = async function (userId, content) {
+  this.comments.push({ content, author: userId });
+  await this.save();
+};
+
+module.exports = mongoose.model('Post', postSchema);
